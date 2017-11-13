@@ -5,6 +5,7 @@ from __future__ import division, print_function
 from .move import Move
 
 from .mh import MHMove
+from .hmc import HamiltonianMove
 from .gaussian import GaussianMove
 
 from .red_blue import RedBlueMove
@@ -17,7 +18,7 @@ from .de_snooker import DESnookerMove
 
 __all__ = [
     "Move",
-    "MHMove", "GaussianMove",
+    "MHMove", "HamiltonianMove", "GaussianMove",
     "RedBlueMove", "StretchMove", "WalkMove", "KDEMove",
     "DEMove", "DESnookerMove",
 ]

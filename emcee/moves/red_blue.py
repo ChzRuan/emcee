@@ -49,14 +49,14 @@ class RedBlueMove(Move):
         raise NotImplementedError("The proposal must be implemented by "
                                   "subclasses")
 
-    def propose(self, coords, log_probs, blobs, log_prob_fn, random):
+    def propose(self, coords, log_probs, blobs, sampler, random):
         """Use the move to generate a proposal and compute the acceptance
 
         Args:
             coords: The initial coordinates of the walkers.
             log_probs: The initial log probabilities of the walkers.
-            log_prob_fn: A function that computes the log probabilities for a
-                subset of walkers.
+            sampler: The sampler object. This will be used to compute the log
+                probabilities.
             random: A numpy-compatible random number state.
 
         """
@@ -88,7 +88,7 @@ class RedBlueMove(Move):
             q, factors = self.get_proposal(s, c, random)
 
             # Compute the lnprobs of the proposed position.
-            new_log_probs, new_blobs = log_prob_fn(q)
+            new_log_probs, new_blobs = sampler.compute_log_prob(q)
 
             # Loop over the walkers and update them accordingly.
             for i, (j, f, nlp) in enumerate(zip(

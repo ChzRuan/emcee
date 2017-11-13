@@ -14,10 +14,18 @@ def normal_log_prob(params):
     return -0.5 * np.sum(params**2)
 
 
+def normal_grad_log_prob(params):
+    return -params
+
+
 def uniform_log_prob(params):
     if np.any(params > 1) or np.any(params < 0):
         return -np.inf
     return 0.0
+
+
+def uniform_grad_log_prob(params):
+    return np.zeros_like(params)
 
 
 def _test_normal(proposal, ndim=1, nwalkers=32, nsteps=2000, seed=1234,
@@ -29,6 +37,7 @@ def _test_normal(proposal, ndim=1, nwalkers=32, nsteps=2000, seed=1234,
     coords = np.random.randn(nwalkers, ndim)
 
     sampler = emcee.EnsembleSampler(nwalkers, ndim, normal_log_prob,
+                                    normal_grad_log_prob,
                                     moves=proposal)
     sampler.run_mcmc(coords, nsteps)
 
@@ -50,21 +59,24 @@ def _test_normal(proposal, ndim=1, nwalkers=32, nsteps=2000, seed=1234,
         assert ks < 0.05, "The K-S test failed"
 
 
-def _test_uniform(proposal, nwalkers=32, nsteps=2000, seed=1234):
+def _test_uniform(proposal, nwalkers=32, nsteps=2000, seed=1234,
+                  check_acceptance=True):
     # Set up the random number generator.
     np.random.seed(seed)
 
     # Initialize the ensemble and proposal.
     coords = np.random.rand(nwalkers, 1)
 
-    sampler = emcee.EnsembleSampler(nwalkers, 1, normal_log_prob,
+    sampler = emcee.EnsembleSampler(nwalkers, 1, uniform_log_prob,
+                                    uniform_grad_log_prob,
                                     moves=proposal)
     sampler.run_mcmc(coords, nsteps)
 
     # Check the acceptance fraction.
-    acc = sampler.acceptance_fraction
-    assert np.all((acc < 0.9) * (acc > 0.1)), \
-        "Invalid acceptance fraction\n{0}".format(acc)
+    if check_acceptance:
+        acc = sampler.acceptance_fraction
+        assert np.all((acc < 0.9) * (acc > 0.1)), \
+            "Invalid acceptance fraction\n{0}".format(acc)
 
     # Check that the resulting chain "fails" the K-S test.
     samps = sampler.get_chain(flat=True)

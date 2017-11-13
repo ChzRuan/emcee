@@ -4,6 +4,7 @@ from __future__ import division, print_function
 
 __all__ = ["EnsembleSampler"]
 
+import traceback
 from collections import Iterable
 
 import numpy as np
@@ -50,6 +51,7 @@ class EnsembleSampler(object):
 
     """
     def __init__(self, nwalkers, ndim, log_prob_fn,
+                 grad_log_prob_fn=None,
                  pool=None, moves=None,
                  args=None, kwargs=None,
                  backend=None,
@@ -132,7 +134,8 @@ class EnsembleSampler(object):
 
         # Do a little bit of _magic_ to make the likelihood call with
         # ``args`` and ``kwargs`` pickleable.
-        self.log_prob_fn = _FunctionWrapper(log_prob_fn, args, kwargs)
+        self.log_prob_fn = _FunctionWrapper(log_prob_fn, grad_log_prob_fn,
+                                            args, kwargs)
 
     @property
     def random_state(self):
@@ -174,7 +177,7 @@ class EnsembleSampler(object):
         # In order to be generally picklable, we need to discard the pool
         # object before trying.
         d = self.__dict__
-        d.pop("pool", None)
+        d["pool"] = None
         return d
 
     def sample(self, p0, log_prob0=None, rstate0=None, blobs0=None,
@@ -281,8 +284,7 @@ class EnsembleSampler(object):
 
                     # Propose
                     p, log_prob, blobs, accepted = move.propose(
-                        p, log_prob, blobs, self.compute_log_prob,
-                        self._random)
+                        p, log_prob, blobs, self, self._random)
 
                     # Save the new step
                     if store and (i + 1) % checkpoint_step == 0:
@@ -351,7 +353,7 @@ class EnsembleSampler(object):
         """Calculate the vector of log-probability for the walkers
 
         Args:
-            pos: (Optional[ndarray[..., ndim]]) The position vector in
+            coords: (Optional[ndarray[..., ndim]]) The position vector in
                 parameter space where the probability should be calculated.
                 This defaults to the current position unless a different one
                 is provided.
@@ -479,8 +481,9 @@ class _FunctionWrapper(object):
     or ``kwargs`` are also included.
 
     """
-    def __init__(self, f, args, kwargs):
+    def __init__(self, f, grad, args, kwargs):
         self.f = f
+        self.grad = grad
         self.args = [] if args is None else args
         self.kwargs = {} if kwargs is None else kwargs
 
@@ -488,8 +491,22 @@ class _FunctionWrapper(object):
         try:
             return self.f(x, *self.args, **self.kwargs)
         except:
-            import traceback
-            print("emcee: Exception while calling your likelihood function:")
+            print("emcee: Exception while calling log probability function:")
+            print("  params:", x)
+            print("  args:", self.args)
+            print("  kwargs:", self.kwargs)
+            print("  exception:")
+            traceback.print_exc()
+            raise
+
+    def grad(self, x):
+        if self.grad is None:
+            raise RuntimeError("You must provide a gradient function to "
+                               "compute gradients")
+        try:
+            return self.grad(x, *self.args, **self.kwargs)
+        except:
+            print("emcee: Exception while calling gradient function:")
             print("  params:", x)
             print("  args:", self.args)
             print("  kwargs:", self.kwargs)
